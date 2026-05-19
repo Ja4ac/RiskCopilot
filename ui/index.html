@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>股票基金智能风险管理 - PC UI 原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">RP</div>
+          <div>
+            <div class="brand-title">RiskPilot</div>
+            <div class="brand-subtitle">智能风险管理终端</div>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="主导航">
+          <button class="nav-item active"><span>01</span>总览</button>
+          <button class="nav-item"><span>02</span>持仓</button>
+          <button class="nav-item"><span>03</span>行情</button>
+          <button class="nav-item"><span>04</span>风险</button>
+          <button class="nav-item"><span>05</span>舆情</button>
+          <button class="nav-item"><span>06</span>AI 助手</button>
+          <button class="nav-item"><span>07</span>报告</button>
+          <button class="nav-item"><span>08</span>设置</button>
+        </nav>
+
+        <section class="sidebar-panel">
+          <div class="panel-label">市场状态</div>
+          <div class="market-row">
+            <span>上证指数</span>
+            <b class="gain">+0.42%</b>
+          </div>
+          <div class="market-row">
+            <span>恒生科技</span>
+            <b class="loss">-1.18%</b>
+          </div>
+          <div class="market-row">
+            <span>纳斯达克</span>
+            <b class="gain">+0.36%</b>
+          </div>
+        </section>
+
+        <section class="sidebar-panel sync-panel">
+          <div class="panel-label">数据同步</div>
+          <div class="sync-row">
+            <span class="status-dot"></span>
+            <span>行情 14:58:32</span>
+          </div>
+          <div class="sync-row">
+            <span class="status-dot warning"></span>
+            <span>舆情 3 分钟前</span>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow">Portfolio Risk Dashboard</div>
+            <h1>资产风险总览</h1>
+            <p>2026-05-13，A 股收盘前组合风险快照</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" title="导入">导入</button>
+            <button class="icon-button" title="刷新">刷新</button>
+            <button class="primary-button">生成报告</button>
+          </div>
+        </header>
+
+        <section class="market-strip" aria-label="市场概览">
+          <div>
+            <span>沪深 300</span>
+            <b class="gain">4,162.35 +0.68%</b>
+          </div>
+          <div>
+            <span>中证 500</span>
+            <b class="gain">6,127.80 +0.31%</b>
+          </div>
+          <div>
+            <span>恒生指数</span>
+            <b class="loss">18,943.12 -0.74%</b>
+          </div>
+          <div>
+            <span>美元离岸人民币</span>
+            <b>7.2086</b>
+          </div>
+          <div>
+            <span>组合 Beta</span>
+            <b>1.12</b>
+          </div>
+        </section>
+
+        <section class="kpi-grid" aria-label="核心指标">
+          <article class="metric-card">
+            <span class="metric-label">总资产</span>
+            <strong>¥ 1,286,420</strong>
+            <span class="metric-note neutral">较昨日 +0.84%</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">今日盈亏</span>
+            <strong class="gain">+ ¥ 10,752</strong>
+            <span class="metric-note gain">股票贡献 72%</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">累计收益率</span>
+            <strong class="gain">+ 18.6%</strong>
+            <span class="metric-note neutral">近一年 +9.2%</span>
+          </article>
+          <article class="metric-card risk-high">
+            <span class="metric-label">组合风险分</span>
+            <strong>68</strong>
+            <span class="metric-note danger">高风险，集中度偏高</span>
+          </article>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="left-column">
+            <section class="panel chart-panel">
+              <div class="panel-header">
+                <div>
+                  <h2>组合收益与回撤</h2>
+                  <p>组合收益率、沪深 300 基准、最大回撤</p>
+                </div>
+                <div class="segmented">
+                  <button>1M</button>
+                  <button class="selected">6M</button>
+                  <button>1Y</button>
+                  <button>ALL</button>
+                </div>
+              </div>
+              <div class="chart-area">
+                <div class="chart-line line-main"></div>
+                <div class="chart-line line-benchmark"></div>
+                <div class="drawdown-zone"></div>
+                <div class="chart-legend">
+                  <span><i class="main-dot"></i>组合收益</span>
+                  <span><i class="bench-dot"></i>沪深 300</span>
+                  <span><i class="risk-dot"></i>回撤区间</span>
+                </div>
+                <div class="axis-label label-a">+18%</div>
+                <div class="axis-label label-b">0%</div>
+                <div class="axis-label label-c">-12%</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header compact">
+                <h2>持仓风险排行</h2>
+                <button class="text-button">查看全部</button>
+              </div>
+              <table class="holding-table">
+                <thead>
+                  <tr>
+                    <th>资产</th>
+                    <th>类型</th>
+                    <th>仓位</th>
+                    <th>今日</th>
+                    <th>浮盈亏</th>
+                    <th>风险</th>
+                    <th>舆情</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>宁德时代</strong>
+                      <span>300750.SZ</span>
+                    </td>
+                    <td>股票</td>
+                    <td>18.4%</td>
+                    <td class="loss">-2.16%</td>
+                    <td class="gain">+¥42,180</td>
+                    <td><span class="tag danger">高</span></td>
+                    <td><span class="tag warning">中性偏负</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>沪深 300 ETF</strong>
+                      <span>510300.SH</span>
+                    </td>
+                    <td>ETF</td>
+                    <td>22.7%</td>
+                    <td class="gain">+0.62%</td>
+                    <td class="gain">+¥18,950</td>
+                    <td><span class="tag ok">低</span></td>
+                    <td><span class="tag ok">稳定</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>易方达蓝筹精选</strong>
+                      <span>005827.OF</span>
+                    </td>
+                    <td>基金</td>
+                    <td>15.2%</td>
+                    <td class="gain">+0.31%</td>
+                    <td class="loss">-¥6,420</td>
+                    <td><span class="tag warning">中</span></td>
+                    <td><span class="tag ok">稳定</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>腾讯控股</strong>
+                      <span>00700.HK</span>
+                    </td>
+                    <td>港股</td>
+                    <td>11.6%</td>
+                    <td class="loss">-1.04%</td>
+                    <td class="gain">+¥31,200</td>
+                    <td><span class="tag warning">中</span></td>
+                    <td><span class="tag danger">高相关</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+          </div>
+
+          <div class="right-column">
+            <section class="panel risk-panel">
+              <div class="panel-header compact">
+                <h2>风险雷达</h2>
+                <span class="risk-pill">高</span>
+              </div>
+              <div class="score-ring">
+                <div class="ring">
+                  <strong>68</strong>
+                  <span>风险分</span>
+                </div>
+                <p>集中度和最大回撤是当前主要风险来源。</p>
+              </div>
+              <div class="risk-bars">
+                <div class="risk-row">
+                  <span>波动率</span>
+                  <div><i style="width: 64%"></i></div>
+                  <b>64</b>
+                </div>
+                <div class="risk-row">
+                  <span>最大回撤</span>
+                  <div><i style="width: 72%"></i></div>
+                  <b>72</b>
+                </div>
+                <div class="risk-row">
+                  <span>集中度</span>
+                  <div><i style="width: 81%"></i></div>
+                  <b>81</b>
+                </div>
+                <div class="risk-row">
+                  <span>相关性</span>
+                  <div><i style="width: 58%"></i></div>
+                  <b>58</b>
+                </div>
+                <div class="risk-row">
+                  <span>舆情</span>
+                  <div><i style="width: 46%"></i></div>
+                  <b>46</b>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel allocation-panel">
+              <div class="panel-header compact">
+                <h2>资产配置</h2>
+                <button class="text-button">调仓模拟</button>
+              </div>
+              <div class="donut-wrap">
+                <div class="donut"></div>
+                <ul class="legend">
+                  <li><span class="swatch stock"></span>股票 46%</li>
+                  <li><span class="swatch fund"></span>基金 24%</li>
+                  <li><span class="swatch etf"></span>ETF 23%</li>
+                  <li><span class="swatch cash"></span>现金 7%</li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header compact">
+                <h2>高优先级告警</h2>
+                <span class="count-badge">3</span>
+              </div>
+              <div class="alert-list">
+                <article class="alert-item severe">
+                  <b>新能源仓位 31.8%</b>
+                  <p>超过上限 25%，组合对单一行业波动敏感。</p>
+                </article>
+                <article class="alert-item">
+                  <b>宁德时代触发回撤阈值</b>
+                  <p>近 20 日最大回撤达到 12.4%。</p>
+                </article>
+                <article class="alert-item">
+                  <b>腾讯控股出现高相关舆情</b>
+                  <p>监管政策新闻与持仓相关度 0.82。</p>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <aside class="assistant-drawer">
+        <div class="drawer-header">
+          <div>
+            <h2>AI 风险助手</h2>
+            <span>已接入持仓上下文</span>
+          </div>
+          <div class="assistant-status">在线</div>
+        </div>
+        <div class="ai-summary">
+          <h3>今日摘要</h3>
+          <p>组合今日上涨主要来自宽基 ETF 和消费基金，但新能源仓位仍是最大波动来源。当前风险分 68，建议优先检查行业集中度、宁德时代回撤和港股政策舆情。</p>
+        </div>
+        <div class="prompt-chips">
+          <button>为什么今天上涨？</button>
+          <button>解释当前风险分</button>
+          <button>生成周报</button>
+          <button>做一次压力测试</button>
+        </div>
+        <div class="news-feed">
+          <div class="feed-title">相关舆情</div>
+          <article>
+            <span class="tag danger">高</span>
+            <b>监管政策影响平台经济估值</b>
+            <p>关联：腾讯控股，相关度 0.82</p>
+          </article>
+          <article>
+            <span class="tag warning">中</span>
+            <b>动力电池行业价格竞争延续</b>
+            <p>关联：宁德时代，相关度 0.77</p>
+          </article>
+          <article>
+            <span class="tag ok">低</span>
+            <b>宽基 ETF 资金小幅净流入</b>
+            <p>关联：沪深 300 ETF，相关度 0.63</p>
+          </article>
+        </div>
+        <form class="chat-box">
+          <input type="text" placeholder="询问组合、个股、基金或风险事件" />
+          <button type="button">发送</button>
+        </form>
+      </aside>
+    </div>
+  </body>
+</html>

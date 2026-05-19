@@ -1,0 +1,43 @@
+# === 依赖目录 ===
+node_modules/
+.pnp/
+.pnp.js
+
+
+# === 构建/输出目录 ===
+out/
+dist/
+build/
+release/
+
+# === 日志文件 ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# === 运行时/临时文件 ===
+*.tmp
+*.temp
+pids
+*.pid
+.nyc_output/
+coverage/
+
+# === 编辑器/IDE 配置 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === 操作系统文件 ===
+.DS_Store
+Thumbs.db
+
+# === Electron 项目相关 ===
+electron-builder/
+
+# === 你项目里的特殊文件夹 ===
+python-proxy/
+docs/

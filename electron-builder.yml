@@ -1,0 +1,23 @@
+appId: com.riskpilot.app
+productName: RiskPilot
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**/*
+  - "!node_modules/**/*"
+win:
+  target: nsis
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: RiskPilot
+extraResources:
+  - from: resources/
+    to: resources/
+    filter:
+      - "*.ico"
+      - "*.png"
