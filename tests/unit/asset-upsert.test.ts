@@ -42,9 +42,11 @@ describe('Asset Type Detection', () => {
     expect(guessAssetType('513180')).toBe('etf')
   })
 
-  it('detects fund by 00xxxx pattern', () => {
-    expect(guessAssetType('005827')).toBe('fund')
-    expect(guessAssetType('003095')).toBe('fund')
+  it('defaults all 00xxxx codes to stock (no code-prefix guessing)', () => {
+    // The system no longer guesses fund vs stock by code prefix.
+    // Asset type comes from user's transaction method choice.
+    expect(guessAssetType('005827')).toBe('stock')
+    expect(guessAssetType('003095')).toBe('stock')
   })
 
   it('detects regular stock', () => {

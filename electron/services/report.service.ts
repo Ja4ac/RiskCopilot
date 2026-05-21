@@ -9,19 +9,17 @@ import type { Report, ReportType, AIChatContext } from '../../shared/types/datab
 import type { IpcGenerateReportPayload } from '../../shared/types/ipc'
 import { AIService } from './ai.service'
 import { RiskService } from './risk.service'
-import { PortfolioService } from './portfolio.service'
+import { getPositionService } from './portfolio'
 import { NewsService } from './news.service'
 
 export class ReportService {
   private aiService: AIService
   private riskService: RiskService
-  private portfolioService: PortfolioService
   private newsService: NewsService
 
   constructor() {
     this.aiService = new AIService()
     this.riskService = new RiskService()
-    this.portfolioService = new PortfolioService()
     this.newsService = new NewsService()
   }
 
@@ -103,8 +101,8 @@ export class ReportService {
   // ---- Private helpers ----
 
   private buildContext(): AIChatContext {
-    const positions = this.portfolioService.getPositionsWithDetails()
-    const summary = this.portfolioService.getSummary()
+    const positions = getPositionService().getPositionsWithDetails()
+    const summary = getPositionService().getSummary()
     const riskMetrics = this.riskService.getSummary()
     const newsResult = this.newsService.getNews({ limit: 30 })
 

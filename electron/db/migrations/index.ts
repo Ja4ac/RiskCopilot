@@ -5,6 +5,16 @@ interface Migration {
   sql: string
 }
 
+// ── Migration Audit Rules ──
+// 1. Each migration MUST be idempotent (use IF NOT EXISTS / INSERT OR IGNORE)
+// 2. Version numbers MUST be monotonically increasing
+// 3. Do NOT clear business data in later migrations without a comment
+// 4. WARNING: 003_accounts_and_data_sources appears AFTER 004/005 in array
+//    but migrations run by NAME, not position. For new DBs, 003 runs before
+//    004 due to array order. This is harmless since all statements are
+//    CREATE TABLE IF NOT EXISTS / INSERT OR IGNORE. If you add a migration
+//    that depends on 003, ensure it appears AFTER 003 in the array.
+
 const MIGRATIONS: Migration[] = [
   {
     name: '001_initial_schema',
@@ -424,6 +434,38 @@ const MIGRATIONS: Migration[] = [
 
       CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_daily_date ON portfolio_daily_value(date);
       CREATE INDEX IF NOT EXISTS idx_portfolio_daily_created ON portfolio_daily_value(created_at);
+    `,
+  },
+  {
+    name: '011_kline_bars_unique',
+    sql: `
+      -- Add UNIQUE(asset_id, period, bar_time) to prevent duplicate bars
+      -- SQLite does not support ALTER TABLE ADD CONSTRAINT, so rebuild the table.
+      CREATE TABLE IF NOT EXISTS kline_bars_new (
+        id TEXT PRIMARY KEY,
+        asset_id TEXT NOT NULL,
+        period TEXT NOT NULL DEFAULT '1d',
+        open REAL NOT NULL,
+        high REAL NOT NULL,
+        low REAL NOT NULL,
+        close REAL NOT NULL,
+        volume REAL,
+        bar_time TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'simulated',
+        FOREIGN KEY (asset_id) REFERENCES assets(id),
+        UNIQUE(asset_id, period, bar_time)
+      );
+
+      INSERT OR IGNORE INTO kline_bars_new (id, asset_id, period, open, high, low, close, volume, bar_time, source)
+        SELECT id, asset_id, period, open, high, low, close, volume, bar_time, source
+        FROM kline_bars;
+
+      DROP TABLE kline_bars;
+      ALTER TABLE kline_bars_new RENAME TO kline_bars;
+
+      CREATE INDEX IF NOT EXISTS idx_kline_asset_period ON kline_bars(asset_id, period);
+      CREATE INDEX IF NOT EXISTS idx_kline_time ON kline_bars(bar_time);
+      CREATE INDEX IF NOT EXISTS idx_kline_bars_asset_period_time ON kline_bars(asset_id, period, bar_time);
     `,
   },
 ]

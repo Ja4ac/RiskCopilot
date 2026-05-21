@@ -3,7 +3,7 @@ import { useRiskStore } from '@/stores/risk.store'
 import { useAppStore } from '@/stores/app.store'
 
 function fmtMoney(n: number): string {
-  return '¥' + Math.round(n).toLocaleString('zh-CN')
+  return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtPct(n: number): string {
@@ -69,7 +69,7 @@ export function KPIGrid() {
         </div>
 
         <div className={`metric-card ${loading && !portfolioSummary ? '' : ''}`}>
-          <span className="metric-label">持仓总盈亏</span>
+          <span className="metric-label">持仓总收益</span>
           {loading && !portfolioSummary ? (
             <>
               <div className="skeleton" style={{ height: 32, marginTop: 8, borderRadius: 6 }} />
@@ -88,7 +88,7 @@ export function KPIGrid() {
         </div>
 
         <div className={`metric-card ${loading && !portfolioSummary ? '' : ''}`}>
-          <span className="metric-label">昨日盈亏</span>
+          <span className="metric-label">昨日收益</span>
           {loading && !portfolioSummary ? (
             <>
               <div className="skeleton" style={{ height: 32, marginTop: 8, borderRadius: 6 }} />

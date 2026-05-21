@@ -59,6 +59,7 @@ export const IPC_CHANNELS = {
   MARKET_FETCH_KLINE: 'market:fetchKline',
   MARKET_GET_INDICATORS: 'market:getIndicators',
   MARKET_SYNC_QUOTES: 'market:syncQuotes',
+  MARKET_FORCE_REFRESH_ASSET: 'market:forceRefreshAsset',
   MARKET_GET_SOURCE_STATUS: 'market:getSourceStatus',
 
   // Risk
@@ -141,7 +142,8 @@ export const IPC_CHANNELS = {
   APP_EXPORT_FILE: 'app:exportFile',
   APP_GET_DATA_SOURCE_STATUS: 'app:getDataSourceStatus',
   APP_GET_STATE: 'app:getState',
-  APP_SEED_DATA: 'app:seedData'
+  APP_SEED_DATA: 'app:seedData',
+  APP_CLEAR_ALL_DATA: 'app:clearAllData'
 } as const
 
 // ---- IPC Payload Types ----

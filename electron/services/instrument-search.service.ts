@@ -139,7 +139,6 @@ export class InstrumentSearchService {
       try {
         const online = await this.searchOnline(normalized.symbol!, normalized.market)
         if (online) {
-          // Insert into local cache for future searches
           this.upsertListing(online)
           localResults = [online]
         }
@@ -148,13 +147,30 @@ export class InstrumentSearchService {
       }
     }
 
+    // ── 3. Global online fallback (Yahoo Finance) for any query with no local results ──
+    if (localResults.length === 0 && options?.allowOnlineFallback !== false) {
+      try {
+        const globalResults = await this.searchGlobal(query)
+        if (globalResults.length > 0) {
+          fallbackUsed = true
+          for (const listing of globalResults) {
+            this.upsertListing(listing)
+          }
+          localResults = globalResults
+        }
+      } catch (e: any) {
+        console.error(`[InstrumentSearch] Global search failed:`, e.message)
+      }
+    }
+
     // Build results with quality metadata
+    const effectiveTotal = localResults.length > 0 ? localResults.length : total
     const results: SearchResult[] = localResults.map((listing) => ({
       listing,
       quality: this.buildQuality(listing, now),
     }))
 
-    return { results, total, fallbackUsed }
+    return { results, total: effectiveTotal, fallbackUsed }
   }
 
   /**
@@ -207,6 +223,86 @@ export class InstrumentSearchService {
       staleness_ms: stalenessMs,
       confidence,
       error_message: null,
+    }
+  }
+
+  /**
+   * Search global stocks via EastMoney suggest API (supports A-share, HK, US, funds).
+   * Used as fallback when local stock_listings has no match.
+   * Results are cached into stock_listings for future searches.
+   */
+  private async searchGlobal(query: string): Promise<InstrumentListing[]> {
+    try {
+      const url = `https://searchadapter.eastmoney.com/api/suggest/get?input=${encodeURIComponent(query)}&type=14&token=D43BF722C8E33BDC906FB84D85E326E8`
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://quote.eastmoney.com/',
+        },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!resp.ok) {
+        console.warn(`[InstrumentSearch] EastMoney suggest returned ${resp.status}`)
+        return []
+      }
+      const json = (await resp.json()) as {
+        QuotationCodeTable?: {
+          Data?: Array<{
+            Code: string
+            Name: string
+            JYS: string
+            MarketType: string
+            SecurityType?: string
+          }> | null
+          Status?: number
+        }
+      }
+      const data = json.QuotationCodeTable?.Data
+      if (!data || !Array.isArray(data) || data.length === 0) return []
+
+      const results: InstrumentListing[] = []
+      const seen = new Set<string>()
+      for (const item of data) {
+        const code = item.Code
+        const name = item.Name
+        if (!code || !name || seen.has(code)) continue
+        seen.add(code)
+
+        // Map JYS (exchange) to RiskPilot market code
+        const jys = (item.JYS || '').toUpperCase()
+        let market: string | null = null
+        if (jys === 'SH' || jys === 'SSE' || jys === 'SHH') market = 'SH'
+        else if (jys === 'SZ' || jys === 'SZSE' || jys === 'SHZ') market = 'SZ'
+        else if (jys === 'HK') market = 'HK'
+        else if (['NYSE', 'NASDAQ', 'NSDQ', 'AMEX', 'NYSEMKT', 'PCX', 'ASE'].includes(jys)) market = 'US'
+        else if (jys === 'OF' || jys === 'OTC') market = 'OF'
+        // Fallback by SecurityType
+        else if (item.SecurityType === '7') market = 'US'
+        else if (item.SecurityType === '19' || item.MarketType === '5') market = 'HK'
+        else continue
+
+        // Map SecurityType to asset type
+        let assetType: AssetType = 'stock'
+        if (item.SecurityType === '2') assetType = 'fund'
+        else if (item.SecurityType === '3') assetType = 'etf'
+
+        results.push({
+          symbol: code,
+          market: market as Market,
+          name,
+          asset_type: assetType,
+          industry: null,
+          is_active: true,
+          last_quote_price: null,
+          last_quote_change_pct: null,
+          last_quote_time: null,
+          updated_at: new Date().toISOString(),
+        })
+      }
+      return results
+    } catch (e: any) {
+      console.warn(`[InstrumentSearch] EastMoney suggest search error: ${e.message}`)
+      return []
     }
   }
 

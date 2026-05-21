@@ -113,6 +113,25 @@ export interface KlineBar {
   source: string
 }
 
+/** Error codes for K-line fetch operations */
+export type KlineErrorCode =
+  | 'NONE'
+  | 'NO_DATA'
+  | 'PROXY_UNAVAILABLE'
+  | 'PROXY_ERROR'
+  | 'NETWORK_ERROR'
+  | 'UNSUPPORTED_MARKET'
+
+/** Structured result for MARKET_GET_KLINE IPC call */
+export interface KlineFetchResult {
+  bars: KlineBar[]
+  source: 'db' | 'proxy' | 'provider' | 'none'
+  cacheHit: boolean
+  providerStatus: 'active' | 'unavailable' | 'error' | 'not_checked'
+  errorCode: KlineErrorCode
+  errorMessage?: string
+}
+
 export interface RiskSnapshot {
   id: string
   portfolio_id: string

@@ -932,6 +932,29 @@ export function SettingsPage() {
         </div>
       </Panel>
 
+      {/* Danger Zone */}
+      <Panel title="危险操作" subtitle="清空所有交易、持仓、缓存数据（保留A股/基金代码库）">
+        <div style={{ display: 'flex', gap: 14 }}>
+          <button
+            className="icon-button"
+            style={{ color: 'var(--danger, #e74c3c)', border: '1px solid var(--danger, #e74c3c)' }}
+            onClick={async () => {
+              if (!window.confirm('确定要清除所有交易、持仓和缓存数据吗？\n\n保留：A股/基金代码库（供搜索和名称识别使用）\n清空：交易记录、持仓、K线、行情报价、基金净值、新闻、自选、风控快照、报告、导入记录\n\n此操作不可恢复！')) return
+              if (!window.confirm('再次确认：所有用户数据将被永久删除，是否继续？')) return
+              try {
+                await ipcInvoke(IPC_CHANNELS.APP_CLEAR_ALL_DATA)
+                setSaveStatus('所有数据已清除，请重启应用')
+              } catch (e: any) {
+                setSaveStatus(`清除失败: ${e.message || String(e)}`)
+              }
+              setTimeout(() => setSaveStatus(null), 5000)
+            }}
+          >
+            清除所有数据
+          </button>
+        </div>
+      </Panel>
+
       {/* Appearance */}
       <Panel title="外观" subtitle="切换主题模式">
         <div

@@ -226,7 +226,7 @@ export function PortfolioChart({ mode, onModeChange }: PortfolioChartProps) {
         ) : !data || data.dates.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--muted)' }}>
             <p>暂无收益走势数据</p>
-            <p style={{ fontSize: 12, marginTop: 4 }}>添加交易后将自动记录收益走势</p>
+            <p style={{ fontSize: 12, marginTop: 4 }}>添加股票后将自动记录收益走势</p>
           </div>
         ) : (
           <ReactECharts

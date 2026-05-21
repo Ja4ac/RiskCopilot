@@ -26,8 +26,18 @@ export class WatchlistService {
     const db = getDb()
     const now = new Date().toISOString()
 
+    // Auto-resolve name from stock_listings, filtered by market AND asset_type (user's choice)
+    let resolvedName = name
+    if (!resolvedName || resolvedName === symbol) {
+      const typeFilter = assetType === 'stock' ? "asset_type IN ('stock','etf')" : assetType === 'fund' ? "asset_type = 'fund'" : "1=1"
+      const fromListings = db.prepare(`
+        SELECT name FROM stock_listings WHERE symbol = ? AND market = ? AND is_active = 1 AND ${typeFilter} LIMIT 1
+      `).get(symbol, market) as { name: string } | undefined
+      if (fromListings?.name) resolvedName = fromListings.name
+    }
+
     // Upsert asset
-    const assetId = this.upsertAsset(db, symbol, market, name, assetType)
+    const assetId = this.upsertAsset(db, symbol, market, resolvedName, assetType)
 
     // Check if already in watchlist
     const existing = db.prepare('SELECT * FROM watchlist_items WHERE asset_id = ?').get(assetId) as WatchlistItem | undefined

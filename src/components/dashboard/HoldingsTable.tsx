@@ -7,7 +7,7 @@ interface HoldingsTableProps {
   onSelect?: (assetId: string) => void
 }
 
-type SortField = 'name' | 'price' | 'marketValue' | 'cost' | 'pnl' | 'pnlPct' | 'yesterdayPnl'
+type SortField = 'name' | 'price' | 'marketValue' | 'cost' | 'pnl' | 'pnlPct' | 'yesterdayPnl' | 'dailyPnl'
 type SortDir = 'asc' | 'desc'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -20,7 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
 function SkeletonRow() {
   return (
     <tr>
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <td key={i}>
           <div className="skeleton" style={{ height: 14, width: i === 0 ? 100 : 60, borderRadius: 4 }} />
         </td>
@@ -68,6 +68,9 @@ export function HoldingsTable({ positions, loading = false, onSelect }: Holdings
         case 'yesterdayPnl':
           cmp = a.yesterday_pnl - b.yesterday_pnl
           break
+        case 'dailyPnl':
+          cmp = a.daily_pnl - b.daily_pnl
+          break
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -88,9 +91,10 @@ export function HoldingsTable({ positions, loading = false, onSelect }: Holdings
             <th>最新价</th>
             <th>市值</th>
             <th>成本</th>
-            <th>总盈亏</th>
-            <th>盈亏率</th>
-            <th>昨日</th>
+            <th>总收益</th>
+            <th>持有收益率</th>
+            <th>昨日收益</th>
+            <th>今日收益</th>
           </tr>
         </thead>
         <tbody>
@@ -119,25 +123,27 @@ export function HoldingsTable({ positions, loading = false, onSelect }: Holdings
             成本 <SortIndicator field="cost" />
           </th>
           <th onClick={() => handleSort('pnl')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-            总盈亏 <SortIndicator field="pnl" />
+            总收益 <SortIndicator field="pnl" />
           </th>
           <th onClick={() => handleSort('pnlPct')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-            盈亏率 <SortIndicator field="pnlPct" />
+            持有收益率 <SortIndicator field="pnlPct" />
           </th>
           <th onClick={() => handleSort('yesterdayPnl')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-            昨日 <SortIndicator field="yesterdayPnl" />
+            昨日收益 <SortIndicator field="yesterdayPnl" />
+          </th>
+          <th onClick={() => handleSort('dailyPnl')} style={{ cursor: 'pointer', textAlign: 'right' }}>
+            今日收益 <SortIndicator field="dailyPnl" />
           </th>
         </tr>
       </thead>
       <tbody>
         {sortedPositions.map((pos) => {
-          // For funds: derive display price from market_value/quantity if quote is missing or zero
           const rawPrice = pos.quote?.price ?? 0
           const price = rawPrice > 0 ? rawPrice : (pos.quantity > 0 ? pos.market_value / pos.quantity : pos.avg_cost)
-          const changePct = pos.quote?.change_pct ?? 0
           const pnl = pos.unrealized_pnl
           const pnlPct = pos.total_return_pct
-          const yesterday = pos.yesterday_pnl
+          const yesterdayVal = pos.yesterday_pnl
+          const dailyPnl = pos.daily_pnl
 
           return (
             <tr
@@ -159,14 +165,7 @@ export function HoldingsTable({ positions, loading = false, onSelect }: Holdings
                 </div>
               </td>
               <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                <div>¥{pos.asset.asset_type === 'fund' ? price.toFixed(4) : price.toFixed(2)}</div>
-                {pos.quote ? (
-                  <div style={{ fontSize: 11, color: changePct >= 0 ? '#d33f3f' : '#119468' }}>
-                    {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: '#c99a05' }}>暂无行情</div>
-                )}
+                ¥{pos.asset.asset_type === 'fund' ? price.toFixed(4) : price.toFixed(2)}
               </td>
               <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                 ¥{pos.market_value.toFixed(2)}
@@ -186,18 +185,26 @@ export function HoldingsTable({ positions, loading = false, onSelect }: Holdings
               }}>
                 {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
               </td>
+              {/* 昨日盈亏（金额） */}
               <td style={{
                 textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-                color: yesterday >= 0 ? '#d33f3f' : '#119468',
+                color: yesterdayVal >= 0 ? '#d33f3f' : '#119468', fontSize: 13,
               }}>
-                {yesterday >= 0 ? '+' : ''}¥{Math.round(yesterday).toLocaleString('zh-CN')}
+                {yesterdayVal >= 0 ? '+' : ''}¥{yesterdayVal.toFixed(2)}
+              </td>
+              {/* 实时盈亏（今日金额） */}
+              <td style={{
+                textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+                color: dailyPnl >= 0 ? '#d33f3f' : '#119468', fontSize: 13,
+              }}>
+                {dailyPnl >= 0 ? '+' : ''}¥{dailyPnl.toFixed(2)}
               </td>
             </tr>
           )
         })}
         {sortedPositions.length === 0 && (
           <tr>
-            <td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
+            <td colSpan={8} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
               暂无持仓数据
             </td>
           </tr>

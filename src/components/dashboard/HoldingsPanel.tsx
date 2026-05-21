@@ -142,7 +142,7 @@ export function HoldingsPanel({ onSelect }: HoldingsPanelProps) {
       />
       {!loading && positions.length === 0 && (
         <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
-          暂无持仓数据，请前往「交易管理」添加交易
+          暂无持仓数据，请前往「交易管理」添加股票
         </div>
       )}
     </Panel>

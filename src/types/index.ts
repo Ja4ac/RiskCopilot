@@ -33,6 +33,8 @@ export type {
   DataQualityStatus,
   AssetType,
   Market,
+  KlineFetchResult,
+  KlineErrorCode,
 } from '@shared/types/database'
 export type {
   IpcAddTradePayload,

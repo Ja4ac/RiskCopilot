@@ -344,3 +344,28 @@ export async function fetchFundNavHistoryFromProxy(
   }
   throw lastError || new Error(`Failed to fetch NAV history for ${symbol} after 3 attempts`)
 }
+
+/**
+ * Resolve a stock/fund name by symbol via the proxy (akshare fallback).
+ */
+export async function resolveNameFromProxy(
+  symbol: string
+): Promise<string | null> {
+  try {
+    const url = new URL(`${getProxyUrl()}/resolve/name`)
+    url.searchParams.set('symbol', symbol)
+    console.log(`[resolveNameFromProxy] Fetching name for ${symbol}...`)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(60000) })
+    if (!res.ok) {
+      console.warn(`[resolveNameFromProxy] Proxy returned ${res.status} for ${symbol}`)
+      return null
+    }
+    const json = (await res.json()) as { success: boolean; data?: { name: string }; error?: string }
+    const name = json.success && json.data ? json.data.name : null
+    console.log(`[resolveNameFromProxy] ${symbol} → ${name ?? 'NOT FOUND'}`)
+    return name
+  } catch (e: any) {
+    console.warn(`[resolveNameFromProxy] Failed for ${symbol}: ${e.message}`)
+    return null
+  }
+}

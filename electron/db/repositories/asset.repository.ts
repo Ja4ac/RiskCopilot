@@ -1,7 +1,23 @@
 import { getDb } from '../index'
 import { v4 as uuidv4 } from 'uuid'
 import type { Asset, Market, AssetType } from '../../../shared/types/database'
-import { guessMarket, guessAssetType } from '../../utils/market-detection'
+import { guessMarket } from '../../utils/market-detection'
+
+/**
+ * Resolve asset_type from stock_listings matching both symbol and market.
+ * Returns undefined if no listing found — caller falls back to 'stock'.
+ */
+function resolveAssetType(symbol: string, market: string): string | undefined {
+  try {
+    const db = getDb()
+    const row = db.prepare(
+      `SELECT asset_type FROM stock_listings WHERE symbol = ? AND market = ? AND is_active = 1 LIMIT 1`
+    ).get(symbol, market) as { asset_type: string } | undefined
+    return row?.asset_type
+  } catch {
+    return undefined
+  }
+}
 
 export function getAll(): Asset[] {
   const db = getDb()
@@ -34,11 +50,29 @@ export function upsert(params: {
   const cleanSymbol = params.symbol.trim().replace(/\.+$/, '')
   const marketVal = guessMarket(cleanSymbol, params.market) as Market
   const existing = getBySymbol(cleanSymbol, marketVal)
-  if (existing) return existing
+  if (existing) {
+    // Update name/asset_type if caller provides better data
+    // (asset may have been created without proper metadata)
+    const updates: string[] = []
+    const vals: unknown[] = []
+    if (params.name && params.name !== existing.name) {
+      updates.push('name = ?'); vals.push(params.name)
+    }
+    if (params.asset_type && params.asset_type !== existing.asset_type) {
+      updates.push('asset_type = ?'); vals.push(params.asset_type)
+    }
+    if (updates.length > 0) {
+      const now = new Date().toISOString()
+      updates.push('updated_at = ?'); vals.push(now)
+      vals.push(existing.id)
+      db.prepare(`UPDATE assets SET ${updates.join(', ')} WHERE id = ?`).run(...vals)
+    }
+    return existing
+  }
 
   const id = uuidv4()
   const now = new Date().toISOString()
-  const name = params.name || params.symbol
+  const name = params.name || cleanSymbol
 
   db.prepare(`
     INSERT INTO assets (id, symbol, market, name, asset_type, currency, industry, style, exchange, created_at, updated_at)
@@ -48,7 +82,7 @@ export function upsert(params: {
     cleanSymbol,
     marketVal,
     name,
-    params.asset_type || guessAssetType(cleanSymbol),
+    params.asset_type || resolveAssetType(cleanSymbol, marketVal) || 'stock',
     params.currency || 'CNY',
     now,
     now

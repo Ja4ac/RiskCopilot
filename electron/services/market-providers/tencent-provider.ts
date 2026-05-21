@@ -15,7 +15,7 @@ export class TencentProvider implements IMarketProvider {
   async getQuotes(symbols: AssetIdentifier[]): Promise<MarketQuote[]> {
     if (symbols.length === 0) return []
 
-    // 腾讯代码格式: sh600519,sz300750
+    // 腾讯代码格式: sh600519,sz300750, hk00700, usTSLA
     const codes = symbols.map((s) => `${s.market.toLowerCase()}${s.symbol}`).join(',')
     const url = `https://qt.gtimg.cn/q=${codes}`
 

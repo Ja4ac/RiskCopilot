@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 interface PanelProps {
   title?: string
-  subtitle?: string
+  subtitle?: React.ReactNode
   tooltip?: string
   actions?: React.ReactNode
   compact?: boolean

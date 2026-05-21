@@ -15,8 +15,13 @@ export class SinaJsProvider implements IMarketProvider {
   async getQuotes(symbols: AssetIdentifier[]): Promise<MarketQuote[]> {
     if (symbols.length === 0) return []
 
-    // 新浪代码格式: sh600519, sz300750
-    const codes = symbols.map((s) => `${s.market.toLowerCase()}${s.symbol}`).join(',')
+    // 新浪代码格式: sh600519, sz300750, hk00700, gb_nvda(美股)
+    const codes = symbols.map((s) => {
+      const mkt = s.market.toLowerCase()
+      if (mkt === 'us') return `gb_${s.symbol.toLowerCase()}`
+      if (mkt === 'hk') return `hk${s.symbol}`
+      return `${mkt}${s.symbol}`
+    }).join(',')
     const url = `https://hq.sinajs.cn/list=${codes}`
 
     try {
@@ -45,16 +50,32 @@ export class SinaJsProvider implements IMarketProvider {
         continue
       }
 
-      // 新浪返回字段顺序：名称, 今日开盘, 昨日收盘, 当前价, 最高价, 最低价, 竞买价, 竞卖价, 成交量, 成交额, ...
-      const name = fields[0]
-      const open = parseFloat(fields[1]) || 0
-      const prevClose = parseFloat(fields[2]) || 0
-      const price = parseFloat(fields[3]) || 0
-      const volume = parseFloat(fields[8]) || 0
-      const turnover = parseFloat(fields[9]) || 0
+      let name: string, price: number, changePct: number, volume: number, turnover: number
 
-      // 计算涨跌幅百分比
-      const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0
+      if (symbol.market === 'US') {
+        // 新浪美股格式: 名称, 当前价, 涨跌额, 涨跌幅%, 昨收, 今开, 最高, 最低, ...
+        name = fields[0]
+        price = parseFloat(fields[1]) || 0
+        changePct = parseFloat(fields[3]) || 0
+        volume = 0
+        turnover = 0
+      } else if (symbol.market === 'HK') {
+        // 新浪港股格式: 名称, 今开, 昨收, 当前价, 最高, 最低, 成交量, 成交额, ...
+        name = fields[0]
+        const prevClose = parseFloat(fields[2]) || 0
+        price = parseFloat(fields[3]) || 0
+        volume = parseFloat(fields[6]) || 0
+        turnover = parseFloat(fields[7]) || 0
+        changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0
+      } else {
+        // 新浪A股格式: 名称, 今日开盘, 昨日收盘, 当前价, 最高价, 最低价, 竞买价, 竞卖价, 成交量, 成交额, ...
+        name = fields[0]
+        const prevClose = parseFloat(fields[2]) || 0
+        price = parseFloat(fields[3]) || 0
+        volume = parseFloat(fields[8]) || 0
+        turnover = parseFloat(fields[9]) || 0
+        changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0
+      }
 
       quotes.push({
         id: uuid(),
@@ -113,6 +134,9 @@ export class SinaJsProvider implements IMarketProvider {
   }
 
   normalizeAssetCode(symbol: string, market: string): string {
-    return `${market.toLowerCase()}${symbol}`
+    const mkt = market.toLowerCase()
+    if (mkt === 'us') return `gb_${symbol.toLowerCase()}`
+    if (mkt === 'hk') return `hk${symbol}`
+    return `${mkt}${symbol}`
   }
 }

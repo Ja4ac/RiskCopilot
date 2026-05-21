@@ -41,3 +41,5 @@ electron-builder/
 # === 你项目里的特殊文件夹 ===
 python-proxy/
 docs/
+err.txt
+CLAUDE.md

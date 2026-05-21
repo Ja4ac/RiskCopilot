@@ -6,14 +6,16 @@ import { RiskService } from './risk.service'
 import { AlertService } from './alert.service'
 import { getStockListingService } from './stock-listing.service'
 import { getWatchlistService } from './watchlist.service'
-import { fetchFundNavFromProxy, fetchFundNavHistoryFromProxy, fetchKlineFromProxy } from './data-proxy'
-import { PortfolioService } from './portfolio.service'
+import { fetchFundNavFromProxy, fetchFundNavHistoryFromProxy } from './data-proxy'
+import { KlineService } from './kline.service'
+import { getPortfolioQueryService } from './portfolio'
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
 const MAX_RETRIES = 3
+const klineService = new KlineService()
 
 /**
  * Helper: retry an async operation up to MAX_RETRIES times.
@@ -182,10 +184,27 @@ export class MarketSyncEngine {
           }
         }
 
-        // Compute change_pct from local fund_navs
-        const yesterdayRow = db.prepare(`SELECT nav FROM fund_navs WHERE symbol=? AND market=? AND nav_date<=? ORDER BY nav_date DESC LIMIT 1`)
-          .get(fund.symbol, fund.market, yesterdayStr) as { nav: number } | undefined
-        const changePct = yesterdayRow?.nav ? Math.round(((nav - yesterdayRow.nav) / yesterdayRow.nav) * 10000) / 100 : null
+        // Ensure NAV history exists so change_pct can be computed
+        const navCount = (db.prepare(`SELECT COUNT(*) as c FROM fund_navs WHERE symbol=? AND market=?`).get(fund.symbol, fund.market) as { c: number }).c
+        if (navCount < 2) {
+          // Sync NAV history from proxy (non-blocking, best-effort)
+          try {
+            const { fetchFundNavHistoryFromProxy } = await import('./data-proxy')
+            const historyResult = await fetchFundNavHistoryFromProxy(fund.symbol)
+            const insertNav = db.prepare(`INSERT OR IGNORE INTO fund_navs (symbol, market, nav, accumulated_nav, daily_return_pct, source, nav_date) VALUES (?, ?, ?, NULL, NULL, 'akshare', ?)`)
+            for (const item of historyResult.history) {
+              insertNav.run(fund.symbol, fund.market, item.nav, item.nav_date)
+            }
+            console.log(`[MarketSync] Synced ${historyResult.count} NAV records for ${fund.symbol}`)
+          } catch (e: any) {
+            console.warn(`[MarketSync] NAV history sync failed for ${fund.symbol}: ${e.message}`)
+          }
+        }
+
+        // Compute change_pct: compare current NAV vs the previous NAV (strictly before navDate)
+        const prevNav = db.prepare(`SELECT nav FROM fund_navs WHERE symbol=? AND market=? AND nav_date<? ORDER BY nav_date DESC LIMIT 1`)
+          .get(fund.symbol, fund.market, navDate) as { nav: number } | undefined
+        const changePct = prevNav?.nav ? Math.round(((nav - prevNav.nav) / prevNav.nav) * 10000) / 100 : null
 
         // Write to market_quotes (always, even when using local NAV)
         db.prepare(`DELETE FROM market_quotes WHERE asset_id = ?`).run(fund.id)
@@ -219,6 +238,11 @@ export class MarketSyncEngine {
 
     if (syncAssetIds.length === 0) return { stockCount: 0, fundCount: 0, quotesWritten: 0, klinesWritten: 0, positionsUpdated: 0, errors }
 
+    // Clear all cached market data (keep assets, trades, positions intact)
+    db.prepare(`DELETE FROM kline_bars`).run()
+    db.prepare(`DELETE FROM market_quotes`).run()
+    console.log(`[syncAllForce] Cleared all cached K-line and quote data`)
+
     const placeholders = syncAssetIds.map(() => '?').join(',')
     const assets = db.prepare(`
       SELECT * FROM assets WHERE id IN (${placeholders}) ORDER BY symbol ASC
@@ -230,7 +254,6 @@ export class MarketSyncEngine {
     let quotesWritten = 0
     let klinesWritten = 0
     const insertQuote = db.prepare(`INSERT INTO market_quotes (id, asset_id, price, change_pct, volume, turnover, quote_time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    const insertKline = db.prepare(`INSERT OR REPLACE INTO kline_bars (id, asset_id, period, open, high, low, close, volume, bar_time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
     // ── Stocks: 5s gap, 3-retry per asset ──
     for (let i = 0; i < stockAssets.length; i++) {
@@ -254,17 +277,11 @@ export class MarketSyncEngine {
         errors.push(msg)
       }
 
-      // K-line with retry
+      // K-line with retry (delegated to KlineService)
       try {
-        await retry(`${label} K-line`, async () => {
-          const bars = await fetchKlineFromProxy(asset.symbol, asset.market, '1d', 120, 'qfq')
-          if (bars.length === 0) throw new Error('No K-line data returned')
-          for (const bar of bars) {
-            insertKline.run(`${asset.id}_${bar.bar_time}_1d`, asset.id, '1d', bar.open, bar.high, bar.low, bar.close, bar.volume ?? 0, bar.bar_time, 'akshare')
-            klinesWritten++
-          }
-          console.log(`[MarketSync:Force] ${label}: ${bars.length} K-line bars`)
-        })
+        const barCount = await klineService.syncKlineForAsset(asset.symbol, asset.market, asset.id, '1d', 365, '')
+        klinesWritten += barCount
+        console.log(`[MarketSync:Force] ${label}: ${barCount} K-line bars`)
       } catch (e: any) {
         const msg = `${label} K线获取失败: ${e.message}`
         console.error(`[MarketSync:Force] ${msg}`)
@@ -335,6 +352,37 @@ export class MarketSyncEngine {
 
   // ── Helpers ────────────────────────────────────────────────────
 
+  /** Normalize price from providers. Different markets/APIs use different units:
+   *   - A-shares: 元 (CNY), but some providers return 分 (÷100)
+   *   - US stocks: USD, always in dollars — never normalize
+   *   - HK stocks: HKD, some providers return integers in 厘 (÷1000) */
+  private normalizeQuotePrice(quote: MarketQuote): number {
+    let price = quote.price
+    if (price <= 0) return price
+
+    const mkt = quote.market
+    // US stocks — never normalize, prices > 100 are normal
+    if (mkt === 'US') return price
+    // HK stocks — providers may return integer 厘 units (e.g. 440000 → 440.000 HKD)
+    if (mkt === 'HK') {
+      if (price > 10000) {
+        const inDollars = price / 1000
+        console.warn(`[MarketSync] Normalized HK ${quote.symbol} price from ${price} (厘) to ${inDollars}`)
+        return Math.round(inDollars * 1000) / 1000
+      }
+      return price
+    }
+    // A-shares — some providers return 分 instead of 元
+    if (price > 100) {
+      const inYuan = price / 100
+      if (inYuan > 0.5 && inYuan < 100) {
+        console.warn(`[MarketSync] Normalized ${quote.symbol} price from ${price} (分) to ${inYuan} (元)`)
+        price = inYuan
+      }
+    }
+    return price
+  }
+
   private async fetchQuotesFromProviders(identifiers: AssetIdentifier[], primaryProvider: ReturnType<typeof getActiveMarketProvider>): Promise<MarketQuote[]> {
     const results = new Map<string, MarketQuote>()
     const providers = [primaryProvider, ...Array.from(getMarketProviderRegistry().values()).filter((p) => p.id !== primaryProvider.id)]
@@ -343,7 +391,11 @@ export class MarketSyncEngine {
         const result = await p.getQuotes(identifiers)
         if (Array.isArray(result) && result.length > 0) {
           for (const quote of result) {
-            if (quote.price != null && quote.price > 0) results.set(`${quote.symbol}:${quote.market}`, quote)
+            if (quote.price != null && quote.price > 0) {
+              // Normalize price before storing
+              const normalizedPrice = this.normalizeQuotePrice(quote)
+              results.set(`${quote.symbol}:${quote.market}`, { ...quote, price: normalizedPrice })
+            }
           }
           return Array.from(results.values())
         }
@@ -362,8 +414,17 @@ export class MarketSyncEngine {
     `).all(...assetIds) as { id: string; asset_id: string; quantity: number; cost_amount: number }[]
     for (const pos of positions) {
       const q = db.prepare(`SELECT price FROM market_quotes WHERE asset_id=? ORDER BY quote_time DESC LIMIT 1`).get(pos.asset_id) as { price: number } | undefined
-      if (q?.price && q.price > 0) {
-        const mv = Math.round(pos.quantity * q.price * 100) / 100
+      let price = (q?.price && q.price > 0) ? q.price : 0
+      // Normalize price from DB (may have been stored before normalization was added)
+      if (price > 100) {
+        const inYuan = price / 100
+        if (inYuan > 0.5 && inYuan < 100) {
+          db.prepare(`UPDATE market_quotes SET price=? WHERE asset_id=? AND price=?`).run(inYuan, pos.asset_id, price)
+          price = inYuan
+        }
+      }
+      if (price > 0) {
+        const mv = Math.round(pos.quantity * price * 100) / 100
         db.prepare(`UPDATE positions SET market_value=?, unrealized_pnl=?, updated_at=? WHERE id=?`)
           .run(mv, Math.round((mv - pos.cost_amount) * 100) / 100, new Date().toISOString(), pos.id)
         updated++
@@ -373,7 +434,7 @@ export class MarketSyncEngine {
   }
 
   private postSyncTasks(db: ReturnType<typeof getDb>): void {
-    try { new PortfolioService().recordDailyPortfolioValue() } catch (e: any) { console.error('[MarketSync] recordDaily:', e.message) }
+    try { getPortfolioQueryService().recordDailyPortfolioValue() } catch (e: any) { console.error('[MarketSync] recordDaily:', e.message) }
     try { new RiskService().saveSnapshot() } catch (e: any) { console.error('[MarketSync] risk snapshot:', e.message) }
     try { new AlertService().evaluateAll() } catch (e: any) { console.error('[MarketSync] alert eval:', e.message) }
   }
